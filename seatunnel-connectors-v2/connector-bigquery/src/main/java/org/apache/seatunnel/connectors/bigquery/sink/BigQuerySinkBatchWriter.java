@@ -34,7 +34,9 @@ import com.google.api.gax.rpc.ApiException;
 import com.google.api.gax.rpc.StatusCode;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
+import com.google.cloud.bigquery.storage.v1.Exceptions;
 import com.google.rpc.Code;
+import io.grpc.StatusRuntimeException;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
@@ -116,6 +118,10 @@ public class BigQuerySinkBatchWriter extends AbstractBigQuerySinkWriter {
             buffer = dataToSend;
             throw new BigQueryConnectorException(BigQueryConnectorErrorCode.APPEND_ROWS_FAILED, e);
         } catch (Exception e) {
+            Exceptions.OffsetAlreadyExists offsetError = findOffsetAlreadyExists(e);
+            if (offsetError != null && resumeAfterExistingRows(dataToSend, offsetError)) {
+                return;
+            }
             if (isAlreadyExists(e)) {
                 markAppendAsSuccessful(dataToSend);
                 return;
@@ -123,6 +129,48 @@ public class BigQuerySinkBatchWriter extends AbstractBigQuerySinkWriter {
             buffer = dataToSend;
             throw new BigQueryConnectorException(BigQueryConnectorErrorCode.APPEND_ROWS_FAILED, e);
         }
+    }
+
+    /**
+     * A buffered stream keeps the rows appended after the last completed checkpoint. When the job
+     * is restored from that checkpoint the source replays the same rows from the restored offset,
+     * so the rows the stream already holds are skipped and only the remainder is appended.
+     */
+    private boolean resumeAfterExistingRows(
+            JSONArray dataToSend, Exceptions.OffsetAlreadyExists offsetError) {
+        long existingRows = offsetError.getExpectedOffset() - offsetError.getActualOffset();
+        if (offsetError.getExpectedOffset() < 0
+                || offsetError.getActualOffset() < 0
+                || existingRows <= 0) {
+            return false;
+        }
+        int skipped = (int) Math.min(existingRows, dataToSend.length());
+        streamWriter.onAppendSuccess(skipped);
+        log.info(
+                "BigQuery stream already holds {} of {} replayed rows (expected offset {}); skipping them.",
+                skipped,
+                dataToSend.length(),
+                offsetError.getExpectedOffset());
+        if (skipped < dataToSend.length()) {
+            JSONArray remaining = new JSONArray();
+            for (int i = skipped; i < dataToSend.length(); i++) {
+                remaining.put(dataToSend.get(i));
+            }
+            buffer = remaining;
+            flush();
+        }
+        return true;
+    }
+
+    private Exceptions.OffsetAlreadyExists findOffsetAlreadyExists(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof Exceptions.OffsetAlreadyExists) {
+                return (Exceptions.OffsetAlreadyExists) current;
+            }
+            current = current.getCause();
+        }
+        return null;
     }
 
     private void markAppendAsSuccessful(JSONArray dataToSend) {
@@ -147,6 +195,10 @@ public class BigQuerySinkBatchWriter extends AbstractBigQuerySinkWriter {
             if (current instanceof ApiException) {
                 StatusCode.Code code = ((ApiException) current).getStatusCode().getCode();
                 return code == StatusCode.Code.ALREADY_EXISTS;
+            }
+            if (current instanceof StatusRuntimeException) {
+                return ((StatusRuntimeException) current).getStatus().getCode()
+                        == io.grpc.Status.Code.ALREADY_EXISTS;
             }
             current = current.getCause();
         }

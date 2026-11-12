@@ -30,6 +30,9 @@ import com.google.api.gax.rpc.AlreadyExistsException;
 import com.google.api.gax.rpc.OutOfRangeException;
 import com.google.api.gax.rpc.StatusCode;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
+import com.google.cloud.bigquery.storage.v1.Exceptions;
+import com.google.cloud.bigquery.storage.v1.StorageError;
+import com.google.protobuf.Any;
 import com.google.rpc.Code;
 import com.google.rpc.Status;
 
@@ -39,6 +42,7 @@ import java.util.Collections;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BigQuerySinkBatchWriterTest {
 
@@ -81,6 +85,43 @@ class BigQuerySinkBatchWriterTest {
         assertEquals(0, streamWriter.closeCount);
         assertEquals(0, sinkWriter.buffer.length());
         assertSame(streamWriter, sinkWriter.streamWriter);
+    }
+
+    @Test
+    void testOffsetAlreadyExistsSkipsRowsTheStreamAlreadyHolds() {
+        TestingBigQueryWriter streamWriter =
+                new TestingBigQueryWriter(
+                        ApiFutures.immediateFailedFuture(offsetAlreadyExists(10, 0)));
+        BigQuerySinkBatchWriter sinkWriter = createSinkWriter(streamWriter);
+        sinkWriter.buffer.put("row-1");
+        sinkWriter.buffer.put("row-2");
+
+        sinkWriter.flush();
+
+        assertEquals(1, streamWriter.appendCount);
+        assertEquals(2, streamWriter.successfulRowCount);
+        assertEquals(0, sinkWriter.buffer.length());
+    }
+
+    @Test
+    void testOffsetAlreadyExistsAppendsOnlyTheRowsMissingFromTheStream() {
+        SequencedBigQueryWriter streamWriter =
+                new SequencedBigQueryWriter(
+                        ApiFutures.immediateFailedFuture(offsetAlreadyExists(2, 0)),
+                        ApiFutures.immediateFuture(AppendRowsResponse.newBuilder().build()));
+        BigQuerySinkBatchWriter sinkWriter = createSinkWriter(streamWriter);
+        sinkWriter.buffer.put("row-1");
+        sinkWriter.buffer.put("row-2");
+        sinkWriter.buffer.put("row-3");
+
+        sinkWriter.flush();
+
+        assertEquals(2, streamWriter.appended.size());
+        assertEquals(3, streamWriter.appended.get(0).length());
+        assertEquals(1, streamWriter.appended.get(1).length());
+        assertEquals("row-3", streamWriter.appended.get(1).get(0));
+        assertEquals(3, streamWriter.successfulRowCount);
+        assertEquals(0, sinkWriter.buffer.length());
     }
 
     @Test
@@ -155,6 +196,59 @@ class BigQuerySinkBatchWriterTest {
                                 .setMessage(code.name())
                                 .build())
                 .build();
+    }
+
+    private static Throwable offsetAlreadyExists(long expectedOffset, long receivedOffset) {
+        String message =
+                String.format(
+                        "The offset is within stream, expected offset %d, received %d",
+                        expectedOffset, receivedOffset);
+        StorageError storageError =
+                StorageError.newBuilder()
+                        .setCode(StorageError.StorageErrorCode.OFFSET_ALREADY_EXISTS)
+                        .setEntity("projects/p/datasets/d/tables/t/streams/s")
+                        .setErrorMessage(message)
+                        .build();
+        Status status =
+                Status.newBuilder()
+                        .setCode(Code.ALREADY_EXISTS.getNumber())
+                        .setMessage(message)
+                        .addDetails(Any.pack(storageError))
+                        .build();
+        Throwable error = Exceptions.toStorageException(status, null);
+        assertTrue(error instanceof Exceptions.OffsetAlreadyExists);
+        return new java.util.concurrent.ExecutionException(error);
+    }
+
+    private static class SequencedBigQueryWriter implements BigQueryWriter {
+        private final java.util.Deque<ApiFuture<AppendRowsResponse>> results =
+                new java.util.ArrayDeque<>();
+        private final java.util.List<JSONArray> appended = new java.util.ArrayList<>();
+        private int successfulRowCount;
+
+        @SafeVarargs
+        private SequencedBigQueryWriter(ApiFuture<AppendRowsResponse>... results) {
+            this.results.addAll(java.util.Arrays.asList(results));
+        }
+
+        @Override
+        public ApiFuture<AppendRowsResponse> append(JSONArray jsonArr) {
+            appended.add(jsonArr);
+            return results.removeFirst();
+        }
+
+        @Override
+        public void onAppendSuccess(int rowCount) {
+            successfulRowCount += rowCount;
+        }
+
+        @Override
+        public void close() {}
+
+        @Override
+        public String getStreamName() {
+            return "test-stream";
+        }
     }
 
     private static StatusCode statusCode(StatusCode.Code code) {
