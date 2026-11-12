@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.log.FormatType;
 import org.apache.seatunnel.engine.server.rest.service.LogService;
 
+import com.hazelcast.cluster.Member;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
@@ -73,7 +74,22 @@ public class AllNodeLogServlet extends LogBaseServlet {
                     writeHtml(resp, logService.allNodeLogFormatHtml(jobId));
             }
         } else {
-            prepareLogResponse(resp, logPath, logName);
+            String node = req.getParameter(LogService.NODE_PARAM);
+            Member member = StringUtils.isBlank(node) ? null : logService.findMember(node);
+            if (StringUtils.isBlank(node) || (member != null && member.localMember())) {
+                prepareLogResponse(resp, logPath, logName);
+                return;
+            }
+            if (member == null || logName.contains("/") || logName.contains("\\")) {
+                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                return;
+            }
+            String logContent = logService.memberLog(member, logName);
+            if (logContent == null) {
+                resp.setStatus(HttpServletResponse.SC_BAD_GATEWAY);
+                return;
+            }
+            write(resp, logContent);
         }
     }
 }

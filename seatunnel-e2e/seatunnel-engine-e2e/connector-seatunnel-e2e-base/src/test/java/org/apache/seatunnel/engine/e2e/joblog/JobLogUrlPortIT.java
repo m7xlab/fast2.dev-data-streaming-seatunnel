@@ -164,7 +164,7 @@ public class JobLogUrlPortIT extends SeaTunnelEngineContainer {
 
         ArrayNode logArray = JsonUtils.parseArray(jsonBodyHolder[0]);
         for (JsonNode entry : logArray) {
-            String link = entry.get("logLink").asText();
+            String link = "http://localhost:" + MASTER_HTTP_PORT + entry.get("logLink").asText();
             Container.ExecResult curlResult =
                     masterServer.execInContainer(
                             "curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", link);

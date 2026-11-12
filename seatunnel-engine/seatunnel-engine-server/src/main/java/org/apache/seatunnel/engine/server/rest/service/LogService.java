@@ -35,6 +35,9 @@ import lombok.extern.slf4j.Slf4j;
 import scala.Tuple3;
 
 import java.io.File;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -44,6 +47,10 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_LOGS
 
 @Slf4j
 public class LogService extends BaseLogService {
+
+    /** Query parameter of a log link naming the member that owns the log file. */
+    public static final String NODE_PARAM = "node";
+
     public LogService(NodeEngineImpl nodeEngine) {
         super(nodeEngine);
     }
@@ -80,17 +87,8 @@ public class LogService extends BaseLogService {
 
         for (Member member : nodeEngine.getClusterService().getMembers()) {
             String host = member.getAddress().getHost();
-            int nodeHttpPort;
-            try {
-                nodeHttpPort =
-                        (int)
-                                NodeEngineUtil.sendOperationToMemberNode(
-                                                nodeEngine,
-                                                new GetNodeHttpPortOperation(),
-                                                member.getAddress())
-                                        .get();
-            } catch (Exception e) {
-                log.warn("Failed to get HTTP port from member {}, skip.", member.getAddress(), e);
+            Integer nodeHttpPort = memberHttpPort(member);
+            if (nodeHttpPort == null) {
                 continue;
             }
 
@@ -124,11 +122,87 @@ public class LogService extends BaseLogService {
                         }
                         allLogNameList.add(
                                 new Tuple3<>(
-                                        nodeId, url + REST_URL_LOGS + "/" + fileName, fileName));
+                                        nodeId,
+                                        contextPath
+                                                + REST_URL_LOGS
+                                                + "/"
+                                                + fileName
+                                                + "?"
+                                                + NODE_PARAM
+                                                + "="
+                                                + nodeId,
+                                        fileName));
                     });
         }
 
         return allLogNameList;
+    }
+
+    /**
+     * Finds the cluster member that a log link's {@code node} parameter refers to.
+     *
+     * @param node member id in the {@code host:httpPort} form reported by the log list
+     * @return the matching member, or {@code null} when no cluster member matches
+     */
+    public Member findMember(String node) {
+        for (Member member : nodeEngine.getClusterService().getMembers()) {
+            Integer nodeHttpPort = memberHttpPort(member);
+            if (nodeHttpPort != null
+                    && (member.getAddress().getHost() + ":" + nodeHttpPort).equals(node)) {
+                return member;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Reads a log file from another cluster member through that member's REST service, so that a
+     * client only needs to reach the node it is already talking to.
+     *
+     * @param member member that owns the log file
+     * @param logName log file name
+     * @return the log content, or {@code null} when the member did not return it
+     */
+    public String memberLog(Member member, String logName) {
+        Integer nodeHttpPort = memberHttpPort(member);
+        if (nodeHttpPort == null) {
+            return null;
+        }
+        HttpConfig httpConfig =
+                getSeaTunnelServer(false).getSeaTunnelConfig().getEngineConfig().getHttpConfig();
+        String logUrl;
+        try {
+            logUrl =
+                    "http://"
+                            + member.getAddress().getHost()
+                            + ":"
+                            + nodeHttpPort
+                            + httpConfig.getContextPath()
+                            + REST_URL_LOGS
+                            + "/"
+                            + URLEncoder.encode(logName, StandardCharsets.UTF_8.name())
+                                    .replace("+", "%20");
+        } catch (UnsupportedEncodingException e) {
+            throw new IllegalStateException(e);
+        }
+        return httpConfig.isEnableBasicAuth()
+                ? sendGet(
+                        logUrl,
+                        httpConfig.getBasicAuthUsername(),
+                        httpConfig.getBasicAuthPassword())
+                : sendGet(logUrl);
+    }
+
+    private Integer memberHttpPort(Member member) {
+        try {
+            return (Integer)
+                    NodeEngineUtil.sendOperationToMemberNode(
+                                    nodeEngine, new GetNodeHttpPortOperation(), member.getAddress())
+                            .get();
+        } catch (Exception e) {
+            log.warn("Failed to get HTTP port from member {}, skip.", member.getAddress(), e);
+            return null;
+        }
     }
 
     public JsonArray allNodeLogFormatJson(String jobId) {

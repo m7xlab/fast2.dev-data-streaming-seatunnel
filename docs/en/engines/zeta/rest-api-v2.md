@@ -1476,12 +1476,12 @@ If you want to view the log list first, you can retrieve it via a `GET` request:
 [
   {
     "node": "localhost:8080",
-    "logLink": "http://localhost:8080/logs/job-899485770241277953.log",
+    "logLink": "/logs/job-899485770241277953.log?node=localhost:8080",
     "logName": "job-899485770241277953.log"
   },
   {
     "node": "localhost:8080",
-    "logLink": "http://localhost:8080/logs/job-899470314109468673.log",
+    "logLink": "/logs/job-899470314109468673.log?node=localhost:8080",
     "logName": "job-899470314109468673.log"
   }
 ]

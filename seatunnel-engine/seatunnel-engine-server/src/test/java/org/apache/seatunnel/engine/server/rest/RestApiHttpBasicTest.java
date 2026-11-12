@@ -208,11 +208,11 @@ class RestApiHttpBasicTest extends AbstractSeaTunnelServerTest {
                     new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
                 // [ {
                 //  "node" : "localhost:18080",
-                //  "logLink" : "http://localhost:18080/logs/job-1760939539658.log",
+                //  "logLink" : "/logs/job-1760939539658.log?node=localhost:18080",
                 //  "logName" : "job-1760939539658.log"
                 // }, {
                 //  "node" : "localhost:18080",
-                //  "logLink" : "http://localhost:18080/logs/job-${ctx:ST-JID}.log",
+                //  "logLink" : "/logs/job-${ctx:ST-JID}.log?node=localhost:18080",
                 //  "logName" : "job-${ctx:ST-JID}.log"
                 // } ]
                 String response = in.lines().collect(Collectors.joining());
