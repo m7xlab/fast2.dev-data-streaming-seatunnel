@@ -38,6 +38,13 @@ public class BigQuerySinkOptions {
                     .noDefaultValue()
                     .withDescription("BigQuery dataset ID");
 
+    public static final Option<String> DATASET_LOCATION =
+            Options.key("dataset_location")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Location (for example 'EU' or 'europe-north1') used when the sink creates the dataset. Ignored for an existing dataset.");
+
     public static final Option<String> TABLE_ID =
             Options.key("table_id")
                     .stringType()

@@ -159,6 +159,11 @@ public class BigQuerySaveModeHandler extends DefaultSaveModeHandler {
         if ((source == SqlType.FLOAT || source == SqlType.DOUBLE) && (sink == SqlType.DOUBLE)) {
             return true;
         }
+        // BigQuery TIMESTAMP is an absolute point in time, so it is the target type for a
+        // source TIMESTAMP_TZ column; the catalog reads it back as a plain TIMESTAMP.
+        if (source == SqlType.TIMESTAMP_TZ && sink == SqlType.TIMESTAMP) {
+            return true;
+        }
         // BigQuery has no native MAP type; this connector always represents a source MAP
         // column as a BigQuery STRUCT (see RowToJsonConverters#createMapConverter and the
         // ADD COLUMN handling in BigQuerySchemaChangeManager), so a remote ROW/STRUCT field

@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.bigquery.catalog.BigQueryCatalog;
@@ -38,11 +39,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.Dataset;
+import com.google.cloud.bigquery.DatasetInfo;
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.bigquery.Table;
@@ -58,6 +61,7 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -527,6 +531,103 @@ public class BigQueryCatalogAndSaveModeTest {
                         handler.handleDataSaveMode();
                     });
         }
+    }
+
+    @Test
+    public void testTargetTablePathUsesConfiguredDatasetInsteadOfSourceDatabase() {
+        CatalogTable sourceTable = createMockCatalogTable(TablePath.of("shop", "public", "orders"));
+
+        Map<String, Object> options = new HashMap<>();
+        options.put("project_id", "test-project");
+        options.put("dataset_id", "analytics");
+        options.put("table_id", "cdc_orders");
+        TablePath resolved =
+                BigQuerySink.resolveTargetTablePath(ReadonlyConfig.fromMap(options), sourceTable);
+        assertEquals("analytics", resolved.getDatabaseName());
+        assertEquals("cdc_orders", resolved.getTableName());
+
+        options.put("table_id", "${table_name}");
+        TablePath unresolved =
+                BigQuerySink.resolveTargetTablePath(ReadonlyConfig.fromMap(options), sourceTable);
+        assertEquals("analytics", unresolved.getDatabaseName());
+        assertEquals("orders", unresolved.getTableName());
+    }
+
+    @Test
+    public void testTimestampWithTimeZoneIsCreatedAndValidatedAsTimestamp() throws Exception {
+        TablePath tablePath = TablePath.of("test-dataset", "tz-table");
+        TableId tableId = TableId.of("test-dataset", "tz-table");
+        TableSchema schema =
+                TableSchema.builder()
+                        .column(PhysicalColumn.of("id", BasicType.INT_TYPE, 0, false, null, null))
+                        .column(
+                                PhysicalColumn.of(
+                                        "created_at",
+                                        LocalTimeType.OFFSET_DATE_TIME_TYPE,
+                                        0,
+                                        true,
+                                        null,
+                                        null))
+                        .build();
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("test-catalog", tablePath),
+                        schema,
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        "timestamptz table");
+
+        when(mockBigQuery.getDataset("test-dataset")).thenReturn(mock(Dataset.class));
+        when(mockBigQuery.getTable(tableId)).thenReturn(null);
+
+        catalog.createTable(tablePath, catalogTable, false);
+
+        ArgumentCaptor<TableInfo> created = ArgumentCaptor.forClass(TableInfo.class);
+        verify(mockBigQuery, times(1)).create(created.capture());
+        Field createdAt =
+                created.getValue().getDefinition().getSchema().getFields().get("created_at");
+        assertEquals(StandardSQLTypeName.TIMESTAMP, createdAt.getType().getStandardType());
+
+        Table remoteTable = mock(Table.class);
+        TableDefinition remoteDefinition = mock(TableDefinition.class);
+        when(remoteTable.getDefinition()).thenReturn(remoteDefinition);
+        when(remoteDefinition.getSchema())
+                .thenReturn(
+                        com.google.cloud.bigquery.Schema.of(
+                                Field.of("id", StandardSQLTypeName.INT64),
+                                Field.of("created_at", StandardSQLTypeName.TIMESTAMP)));
+        when(mockBigQuery.getTable(tableId)).thenReturn(remoteTable);
+
+        BigQuerySaveModeHandler handler =
+                new BigQuerySaveModeHandler(
+                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST,
+                        DataSaveMode.APPEND_DATA,
+                        catalog,
+                        tablePath,
+                        catalogTable,
+                        null);
+        assertDoesNotThrow(handler::handleSchemaSaveMode);
+    }
+
+    @Test
+    public void testCreateDatabaseUsesConfiguredLocation() throws Exception {
+        Map<String, Object> options = new HashMap<>();
+        options.put("project_id", "test-project");
+        options.put("dataset_id", "analytics");
+        options.put("dataset_location", "europe-north1");
+        BigQueryCatalog locatedCatalog =
+                new BigQueryCatalog("test-catalog", ReadonlyConfig.fromMap(options));
+        java.lang.reflect.Field clientField = BigQueryCatalog.class.getDeclaredField("bigquery");
+        clientField.setAccessible(true);
+        clientField.set(locatedCatalog, mockBigQuery);
+        when(mockBigQuery.getDataset("analytics")).thenReturn(null);
+
+        locatedCatalog.createDatabase(TablePath.of("analytics", "orders"), true);
+
+        ArgumentCaptor<DatasetInfo> created = ArgumentCaptor.forClass(DatasetInfo.class);
+        verify(mockBigQuery, times(1)).create(created.capture());
+        assertEquals("analytics", created.getValue().getDatasetId().getDataset());
+        assertEquals("europe-north1", created.getValue().getLocation());
     }
 
     private CatalogTable createMockCatalogTable(TablePath tablePath) {

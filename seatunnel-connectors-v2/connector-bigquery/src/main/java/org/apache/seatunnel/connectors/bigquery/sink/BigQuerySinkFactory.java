@@ -82,6 +82,7 @@ public class BigQuerySinkFactory implements TableSinkFactory {
                         BigQuerySinkOptions.EMULATOR_HOST,
                         BigQuerySinkOptions.EMULATOR_GRPC_HOST,
                         BigQuerySinkOptions.UNIVERSE_DOMAIN,
+                        BigQuerySinkOptions.DATASET_LOCATION,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }

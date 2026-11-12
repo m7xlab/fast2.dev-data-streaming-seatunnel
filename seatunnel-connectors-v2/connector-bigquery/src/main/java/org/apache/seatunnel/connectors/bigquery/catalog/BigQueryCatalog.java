@@ -328,7 +328,12 @@ public class BigQueryCatalog implements Catalog {
             throw new DatabaseAlreadyExistException(catalogName, databaseName);
         }
         try {
-            bigquery.create(DatasetInfo.newBuilder(databaseName).build());
+            DatasetInfo.Builder datasetBuilder = DatasetInfo.newBuilder(databaseName);
+            String location = config.get(BigQuerySinkOptions.DATASET_LOCATION);
+            if (location != null && !location.trim().isEmpty()) {
+                datasetBuilder.setLocation(location.trim());
+            }
+            bigquery.create(datasetBuilder.build());
             log.info("BigQuery Dataset (database) '{}' created successfully.", databaseName);
         } catch (Exception e) {
             throw new CatalogException("Failed to create BigQuery dataset: " + databaseName, e);
@@ -468,6 +473,7 @@ public class BigQueryCatalog implements Catalog {
             case TIME:
                 return StandardSQLTypeName.TIME;
             case TIMESTAMP:
+            case TIMESTAMP_TZ:
                 return StandardSQLTypeName.TIMESTAMP;
             case BYTES:
                 return StandardSQLTypeName.BYTES;

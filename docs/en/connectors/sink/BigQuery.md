@@ -36,6 +36,7 @@ Sink connector for Google Cloud BigQuery using the Storage Write API for high-pe
 | project_id                  | string  | Yes      | -       | GCP project ID                                                                                              |
 | dataset_id                  | string  | Yes      | -       | BigQuery dataset ID                                                                                         |
 | table_id                    | string  | Yes      | -       | BigQuery table ID                                                                                           |
+| dataset_location            | string  | No       | -       | Location (for example `EU` or `europe-north1`) used when the sink creates the dataset. Ignored for an existing dataset |
 | service_account_key_path    | string  | No       | -       | Path to GCP service account JSON key file                                                                   |
 | service_account_key_json    | string  | No       | -       | Inline GCP service account JSON key content                                                                 |
 | write_mode                  | string  | No       | batch   | Write mode. Supported values: `batch` and `streaming`                                                       |
@@ -66,6 +67,9 @@ The target BigQuery table can be created automatically using SeaTunnel's SaveMod
 By configuring `schema_save_mode` to `CREATE_SCHEMA_WHEN_NOT_EXIST` (default) or `RECREATE_SCHEMA`, the connector can automatically create the BigQuery dataset and table based on the upstream schema information.
 
 The connector writes to target tables determined by `project_id.dataset_id.table_id`.
+The dataset is always the configured `dataset_id`, also when the upstream tables carry their own database name (for example CDC sources); use `dataset_id = "${database_name}"` to keep one dataset per source database.
+A dataset created by the connector is placed in `dataset_location` when it is set, otherwise in the BigQuery default location.
+Source `TIMESTAMP_TZ` columns (for example PostgreSQL `timestamptz`) are created as BigQuery `TIMESTAMP`.
 In multi-table pipelines, you can configure `table_id` to include `${table_name}` (e.g., `table_id = "${table_name}"` or `table_id = "prefix_${table_name}"`) to dynamically route data to different BigQuery tables. Under this multi-table setting, the connector automatically creates separate target tables as needed.
 
 ### schema_save_mode [Enum]

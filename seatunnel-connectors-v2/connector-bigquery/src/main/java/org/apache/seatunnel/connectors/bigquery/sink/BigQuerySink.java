@@ -154,17 +154,31 @@ public class BigQuerySink
         Catalog catalog = new BigQueryCatalog(catalogTable.getCatalogName(), config);
         SchemaSaveMode schemaSaveMode = config.get(BigQuerySinkOptions.SCHEMA_SAVE_MODE);
         DataSaveMode dataSaveMode = config.get(BigQuerySinkOptions.DATA_SAVE_MODE);
-        TablePath tablePath = catalogTable.getTableId().toTablePath();
-        String configuredTableId = config.get(BigQuerySinkOptions.TABLE_ID);
-        // Note: config option TABLE_ID is already placeholder-resolved per target table
-        // by TablePlaceholderProcessor during FactoryUtil.createAndPrepareSink()
-        if (configuredTableId != null && !configuredTableId.contains("${table_name}")) {
-            tablePath = TablePath.of(tablePath.getDatabaseName(), configuredTableId);
-        }
+        TablePath tablePath = resolveTargetTablePath(config, catalogTable);
         String customSql = config.get(BigQuerySinkOptions.CUSTOM_SQL);
         return Optional.of(
                 new BigQuerySaveModeHandler(
                         schemaSaveMode, dataSaveMode, catalog, tablePath, catalogTable, customSql));
+    }
+
+    /**
+     * Resolves the BigQuery table the save mode handler works on. It must be the same
+     * `dataset_id.table_id` the writers use, otherwise a multi-table job whose upstream tables
+     * carry their own database name creates the tables in one dataset and writes to another. Both
+     * options are already placeholder-resolved per target table by TablePlaceholderProcessor during
+     * FactoryUtil.createAndPrepareSink().
+     */
+    static TablePath resolveTargetTablePath(ReadonlyConfig config, CatalogTable catalogTable) {
+        TablePath sourcePath = catalogTable.getTableId().toTablePath();
+        String datasetId = config.get(BigQuerySinkOptions.DATASET_ID);
+        if (datasetId == null || datasetId.trim().isEmpty()) {
+            datasetId = sourcePath.getDatabaseName();
+        }
+        String tableId = config.get(BigQuerySinkOptions.TABLE_ID);
+        if (tableId == null || tableId.contains("${table_name}")) {
+            tableId = sourcePath.getTableName();
+        }
+        return TablePath.of(datasetId, tableId);
     }
 
     static BigQuerySinkState getLatestState(List<BigQuerySinkState> states) {
