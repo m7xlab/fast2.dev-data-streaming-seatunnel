@@ -425,17 +425,29 @@ public class BigQueryCatalog implements Catalog {
     }
 
     private Field convertColumn(Column column) {
-        StandardSQLTypeName bqType = mapToBigQueryType(column.getDataType().getSqlType());
+        // BigQuery has no ARRAY type name: an array is a REPEATED field of its element type.
+        boolean repeated = column.getDataType() instanceof ArrayType;
+        SeaTunnelDataType<?> valueType =
+                repeated
+                        ? ((ArrayType<?, ?>) column.getDataType()).getElementType()
+                        : column.getDataType();
+        if (repeated && valueType instanceof ArrayType) {
+            throw new CatalogException(
+                    "BigQuery does not support nested arrays: column '" + column.getName() + "'");
+        }
+        StandardSQLTypeName bqType = mapToBigQueryType(valueType.getSqlType());
         Field.Builder fieldBuilder = Field.newBuilder(column.getName(), bqType);
 
-        if (column.isNullable()) {
+        if (repeated) {
+            fieldBuilder.setMode(Field.Mode.REPEATED);
+        } else if (column.isNullable()) {
             fieldBuilder.setMode(Field.Mode.NULLABLE);
         } else {
             fieldBuilder.setMode(Field.Mode.REQUIRED);
         }
 
-        if (column.getDataType().getSqlType() == SqlType.ROW) {
-            SeaTunnelRowType rowType = (SeaTunnelRowType) column.getDataType();
+        if (valueType.getSqlType() == SqlType.ROW) {
+            SeaTunnelRowType rowType = (SeaTunnelRowType) valueType;
             List<Field> subFields = new ArrayList<>();
             for (int i = 0; i < rowType.getFieldNames().length; i++) {
                 Column subColumn =

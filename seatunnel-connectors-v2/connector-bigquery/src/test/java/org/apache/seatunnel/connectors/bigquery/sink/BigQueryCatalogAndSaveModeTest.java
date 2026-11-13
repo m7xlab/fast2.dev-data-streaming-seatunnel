@@ -554,6 +554,60 @@ public class BigQueryCatalogAndSaveModeTest {
     }
 
     @Test
+    public void testArrayColumnIsCreatedAsRepeatedFieldAndPassesCoherenceCheck() throws Exception {
+        TablePath tablePath = TablePath.of("test-dataset", "array-table");
+        TableId tableId = TableId.of("test-dataset", "array-table");
+        TableSchema schema =
+                TableSchema.builder()
+                        .column(PhysicalColumn.of("id", BasicType.INT_TYPE, 0, false, null, null))
+                        .column(
+                                PhysicalColumn.of(
+                                        "postal_codes",
+                                        ArrayType.STRING_ARRAY_TYPE,
+                                        0,
+                                        true,
+                                        null,
+                                        null))
+                        .build();
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("test-catalog", tablePath),
+                        schema,
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        "array table");
+
+        when(mockBigQuery.getDataset("test-dataset")).thenReturn(mock(Dataset.class));
+        when(mockBigQuery.getTable(tableId)).thenReturn(null);
+
+        catalog.createTable(tablePath, catalogTable, false);
+
+        ArgumentCaptor<TableInfo> created = ArgumentCaptor.forClass(TableInfo.class);
+        verify(mockBigQuery, times(1)).create(created.capture());
+        Field postalCodes =
+                created.getValue().getDefinition().getSchema().getFields().get("postal_codes");
+        assertEquals(StandardSQLTypeName.STRING, postalCodes.getType().getStandardType());
+        assertEquals(Field.Mode.REPEATED, postalCodes.getMode());
+
+        Table remoteTable = mock(Table.class);
+        TableDefinition remoteDefinition = mock(TableDefinition.class);
+        when(remoteTable.getDefinition()).thenReturn(remoteDefinition);
+        when(remoteDefinition.getSchema())
+                .thenReturn(created.getValue().getDefinition().getSchema());
+        when(mockBigQuery.getTable(tableId)).thenReturn(remoteTable);
+
+        BigQuerySaveModeHandler handler =
+                new BigQuerySaveModeHandler(
+                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST,
+                        DataSaveMode.APPEND_DATA,
+                        catalog,
+                        tablePath,
+                        catalogTable,
+                        null);
+        assertDoesNotThrow(handler::handleSchemaSaveMode);
+    }
+
+    @Test
     public void testTimestampWithTimeZoneIsCreatedAndValidatedAsTimestamp() throws Exception {
         TablePath tablePath = TablePath.of("test-dataset", "tz-table");
         TableId tableId = TableId.of("test-dataset", "tz-table");
