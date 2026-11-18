@@ -200,6 +200,9 @@ public class JettyService {
         URL uiResource = JettyService.class.getClassLoader().getResource("ui");
         if (uiResource != null) {
             defaultServlet.setInitParameter("resourceBase", uiResource.toExternalForm());
+            // index.html names its scripts by content hash. A browser that keeps an old copy asks
+            // for files a newer build no longer has, so make it revalidate every static file.
+            defaultServlet.setInitParameter("cacheControl", "no-cache");
             // The Web UI route lives in the URL fragment. Clients that escape a whole URL send that
             // fragment as part of the path, which matches no static resource, so restore it instead
             // of answering with the Jetty 404 page. Only a node that serves the UI needs this.
