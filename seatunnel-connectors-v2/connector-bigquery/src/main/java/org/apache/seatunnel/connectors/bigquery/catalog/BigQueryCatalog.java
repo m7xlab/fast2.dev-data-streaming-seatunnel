@@ -72,6 +72,10 @@ import static org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryStrea
  */
 @Slf4j
 public class BigQueryCatalog implements Catalog {
+    private static final int NUMERIC_MAX_SCALE = 9;
+    private static final int NUMERIC_MAX_INTEGER_DIGITS = 29;
+    private static final int BIGNUMERIC_MAX_SCALE = 38;
+    private static final int BIGNUMERIC_MAX_INTEGER_DIGITS = 38;
 
     private final String catalogName;
     private final ReadonlyConfig config;
@@ -435,7 +439,10 @@ public class BigQueryCatalog implements Catalog {
             throw new CatalogException(
                     "BigQuery does not support nested arrays: column '" + column.getName() + "'");
         }
-        StandardSQLTypeName bqType = mapToBigQueryType(valueType.getSqlType());
+        StandardSQLTypeName bqType =
+                valueType instanceof DecimalType
+                        ? mapDecimalToBigQueryType(column.getName(), (DecimalType) valueType)
+                        : mapToBigQueryType(valueType.getSqlType());
         Field.Builder fieldBuilder = Field.newBuilder(column.getName(), bqType);
 
         if (repeated) {
@@ -466,6 +473,22 @@ public class BigQueryCatalog implements Catalog {
         return fieldBuilder.build();
     }
 
+    // NUMERIC holds 29 integer digits and 9 decimal places, BIGNUMERIC 38 and 38.
+    private StandardSQLTypeName mapDecimalToBigQueryType(String columnName, DecimalType type) {
+        int scale = type.getScale();
+        int integerDigits = type.getPrecision() - scale;
+        if (scale <= NUMERIC_MAX_SCALE && integerDigits <= NUMERIC_MAX_INTEGER_DIGITS) {
+            return StandardSQLTypeName.NUMERIC;
+        }
+        if (scale <= BIGNUMERIC_MAX_SCALE && integerDigits <= BIGNUMERIC_MAX_INTEGER_DIGITS) {
+            return StandardSQLTypeName.BIGNUMERIC;
+        }
+        throw new CatalogException(
+                String.format(
+                        "Column '%s' is DECIMAL(%d, %d), which exceeds the BigQuery BIGNUMERIC range",
+                        columnName, type.getPrecision(), scale));
+    }
+
     private StandardSQLTypeName mapToBigQueryType(SqlType sqlType) {
         switch (sqlType) {
             case BOOLEAN:
@@ -485,6 +508,7 @@ public class BigQueryCatalog implements Catalog {
             case TIME:
                 return StandardSQLTypeName.TIME;
             case TIMESTAMP:
+                return StandardSQLTypeName.DATETIME;
             case TIMESTAMP_TZ:
                 return StandardSQLTypeName.TIMESTAMP;
             case BYTES:
@@ -519,8 +543,9 @@ public class BigQueryCatalog implements Catalog {
             case FLOAT64:
                 return BasicType.DOUBLE_TYPE;
             case NUMERIC:
-            case BIGNUMERIC:
                 return new DecimalType(38, 9);
+            case BIGNUMERIC:
+                return new DecimalType(38, 18);
             case BYTES:
                 return PrimitiveByteArrayType.INSTANCE;
             case DATE:

@@ -62,6 +62,7 @@ final class BigQueryTypeConverter {
             case TIME:
                 return "TIME";
             case TIMESTAMP:
+                return "DATETIME";
             case TIMESTAMP_TZ:
                 return "TIMESTAMP";
             case ARRAY:
@@ -103,6 +104,7 @@ final class BigQueryTypeConverter {
             case TIME:
                 return StandardSQLTypeName.TIME;
             case TIMESTAMP:
+                return StandardSQLTypeName.DATETIME;
             case TIMESTAMP_TZ:
                 return StandardSQLTypeName.TIMESTAMP;
             case ROW:

@@ -554,6 +554,77 @@ public class BigQueryCatalogAndSaveModeTest {
     }
 
     @Test
+    public void testDecimalAndTimestampColumnsAreCreatedWithMatchingBigQueryTypes()
+            throws Exception {
+        TablePath tablePath = TablePath.of("test-dataset", "decimal-table");
+        TableId tableId = TableId.of("test-dataset", "decimal-table");
+        TableSchema schema =
+                TableSchema.builder()
+                        .column(decimalColumn("weight", 10, 3))
+                        .column(decimalColumn("rate_to_eur", 20, 10))
+                        .column(decimalColumn("price", 38, 18))
+                        .column(decimalColumn("big_id", 38, 0))
+                        .column(
+                                PhysicalColumn.of(
+                                        "created_at",
+                                        org.apache.seatunnel.api.table.type.LocalTimeType
+                                                .LOCAL_DATE_TIME_TYPE,
+                                        0,
+                                        true,
+                                        null,
+                                        null))
+                        .column(
+                                PhysicalColumn.of(
+                                        "synced_at",
+                                        org.apache.seatunnel.api.table.type.LocalTimeType
+                                                .OFFSET_DATE_TIME_TYPE,
+                                        0,
+                                        true,
+                                        null,
+                                        null))
+                        .build();
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("test-catalog", tablePath),
+                        schema,
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        "decimal table");
+
+        when(mockBigQuery.getDataset("test-dataset")).thenReturn(mock(Dataset.class));
+        when(mockBigQuery.getTable(tableId)).thenReturn(null);
+
+        catalog.createTable(tablePath, catalogTable, false);
+
+        ArgumentCaptor<TableInfo> created = ArgumentCaptor.forClass(TableInfo.class);
+        verify(mockBigQuery, times(1)).create(created.capture());
+        com.google.cloud.bigquery.FieldList fields =
+                created.getValue().getDefinition().getSchema().getFields();
+        assertEquals(StandardSQLTypeName.NUMERIC, fields.get("weight").getType().getStandardType());
+        assertEquals(
+                StandardSQLTypeName.BIGNUMERIC,
+                fields.get("rate_to_eur").getType().getStandardType());
+        assertEquals(
+                StandardSQLTypeName.BIGNUMERIC, fields.get("price").getType().getStandardType());
+        assertEquals(
+                StandardSQLTypeName.BIGNUMERIC, fields.get("big_id").getType().getStandardType());
+        assertEquals(
+                StandardSQLTypeName.DATETIME, fields.get("created_at").getType().getStandardType());
+        assertEquals(
+                StandardSQLTypeName.TIMESTAMP, fields.get("synced_at").getType().getStandardType());
+    }
+
+    private static PhysicalColumn decimalColumn(String name, int precision, int scale) {
+        return PhysicalColumn.of(
+                name,
+                new org.apache.seatunnel.api.table.type.DecimalType(precision, scale),
+                0,
+                true,
+                null,
+                null);
+    }
+
+    @Test
     public void testArrayColumnIsCreatedAsRepeatedFieldAndPassesCoherenceCheck() throws Exception {
         TablePath tablePath = TablePath.of("test-dataset", "array-table");
         TableId tableId = TableId.of("test-dataset", "array-table");
