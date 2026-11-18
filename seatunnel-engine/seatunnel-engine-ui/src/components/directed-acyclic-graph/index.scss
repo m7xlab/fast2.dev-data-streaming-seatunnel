@@ -110,7 +110,7 @@
   }
 }
 
-@media (prefers-color-scheme: dark) {
+html.dark {
   .node {
     background-color: #26262a;
     box-shadow: 0 2px 5px 1px rgba(0, 0, 0, 0.4);

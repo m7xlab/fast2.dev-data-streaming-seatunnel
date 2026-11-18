@@ -23,4 +23,8 @@ export default {
   version: '版本',
   commit: '提交',
   language: '语言',
+  theme: '主题',
+  themeSystem: '跟随系统',
+  themeLight: '浅色',
+  themeDark: '深色'
 }

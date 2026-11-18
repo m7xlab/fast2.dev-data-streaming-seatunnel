@@ -17,6 +17,8 @@
 
 export type Locales = 'zh_CN' | 'en_US'
 
+export type ThemeMode = 'system' | 'light' | 'dark'
+
 export interface SettingStore {
   sequenceColumn: boolean
   dataUniqueValue: boolean
@@ -24,4 +26,5 @@ export interface SettingStore {
   requestTime: number
   locales: Locales
   primaryColor: string
+  themeMode: ThemeMode
 }

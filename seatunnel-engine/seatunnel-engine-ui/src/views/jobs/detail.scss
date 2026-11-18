@@ -188,7 +188,7 @@
   line-height: 1.5;
 }
 
-@media (prefers-color-scheme: dark) {
+html.dark {
   .job-detail-exception {
     background-color: #26262a;
     color: #e5e7eb;

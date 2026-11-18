@@ -16,7 +16,7 @@
  */
 
 import { defineStore } from 'pinia'
-import type { SettingStore, Locales } from './types'
+import type { SettingStore, Locales, ThemeMode } from './types'
 
 const LOCALES_STORAGE_KEY = 'seatunnel.ui.locales'
 
@@ -29,6 +29,17 @@ const resolveInitialLocales = (): Locales => {
   }
 }
 
+const THEME_STORAGE_KEY = 'seatunnel.ui.theme'
+
+const resolveInitialThemeMode = (): ThemeMode => {
+  try {
+    const stored = localStorage.getItem(THEME_STORAGE_KEY)
+    return stored === 'light' || stored === 'dark' ? stored : 'system'
+  } catch {
+    return 'system'
+  }
+}
+
 export const useSettingStore = defineStore({
   id: 'setting',
   state: (): SettingStore => ({
@@ -37,7 +48,8 @@ export const useSettingStore = defineStore({
     fillet: 15,
     requestTime: 6000,
     locales: resolveInitialLocales(),
-    primaryColor: '#4678B9'
+    primaryColor: '#4678B9',
+    themeMode: resolveInitialThemeMode()
   }),
   getters: {
     getSequenceColumn(): boolean {
@@ -54,6 +66,9 @@ export const useSettingStore = defineStore({
     },
     getLocales(): Locales {
       return this.locales
+    },
+    getThemeMode(): ThemeMode {
+      return this.themeMode
     }
   },
   actions: {
@@ -68,6 +83,14 @@ export const useSettingStore = defineStore({
     },
     setRequestTimeValue(status: number): void {
       this.requestTime = status
+    },
+    setThemeMode(mode: ThemeMode): void {
+      this.themeMode = mode
+      try {
+        localStorage.setItem(THEME_STORAGE_KEY, mode)
+      } catch {
+        // ignore
+      }
     },
     setLocales(lang: Locales): void {
       this.locales = lang

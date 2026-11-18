@@ -21,7 +21,7 @@ import Logo from './logo'
 import Info from './info'
 import { useIsDark } from '@/utils/theme'
 
-const DARK_HEADER_COLOR = '#1f2f47'
+const DARK_HEADER_COLOR = '#18181c'
 
 const Header = defineComponent({
   setup() {

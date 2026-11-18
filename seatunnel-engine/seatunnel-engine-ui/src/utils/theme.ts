@@ -17,8 +17,13 @@
 
 import { computed, type ComputedRef } from 'vue'
 import { useOsTheme } from 'naive-ui'
+import { useSettingStore } from '@/store/setting'
 
 export const useIsDark = (): ComputedRef<boolean> => {
   const osTheme = useOsTheme()
-  return computed(() => osTheme.value === 'dark')
+  const settingStore = useSettingStore()
+  return computed(() => {
+    const mode = settingStore.getThemeMode
+    return mode === 'system' ? osTheme.value === 'dark' : mode === 'dark'
+  })
 }

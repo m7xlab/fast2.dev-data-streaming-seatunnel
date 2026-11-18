@@ -23,4 +23,8 @@ export default {
   version: 'Version',
   commit: 'Commit',
   language: 'Language',
+  theme: 'Theme',
+  themeSystem: 'System',
+  themeLight: 'Light',
+  themeDark: 'Dark'
 }

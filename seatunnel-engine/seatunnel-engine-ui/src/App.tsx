@@ -50,6 +50,13 @@ const App = defineComponent({
     }
     const isDark = useIsDark()
     const theme = computed(() => (isDark.value ? darkTheme : null))
+    watch(
+      isDark,
+      (dark) => {
+        document.documentElement.classList.toggle('dark', dark)
+      },
+      { immediate: true }
+    )
     return {
       settingStore,
       themeOverrides,

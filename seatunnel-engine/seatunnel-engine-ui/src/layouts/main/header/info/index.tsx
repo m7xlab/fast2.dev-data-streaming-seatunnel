@@ -20,7 +20,7 @@ import { NButton, NDropdown, NSpace } from 'naive-ui'
 import { overviewService } from '@/service/overview'
 import type { Overview } from '@/service/overview/types'
 import { useSettingStore } from '@/store/setting'
-import type { Locales } from '@/store/setting/types'
+import type { Locales, ThemeMode } from '@/store/setting/types'
 import { useI18n } from 'vue-i18n'
 
 const Logo = defineComponent({
@@ -44,7 +44,36 @@ const Logo = defineComponent({
         settingStore.setLocales(key as Locales)
       }
     }
-    return { data, t, langLabel, langOptions, onSelectLang }
+    const themeLabels = computed<Record<ThemeMode, string>>(() => ({
+      system: t('common.themeSystem'),
+      light: t('common.themeLight'),
+      dark: t('common.themeDark')
+    }))
+
+    const themeLabel = computed(() => themeLabels.value[settingStore.getThemeMode])
+
+    const themeOptions = computed(() =>
+      (['system', 'light', 'dark'] as ThemeMode[]).map((key) => ({
+        label: themeLabels.value[key],
+        key
+      }))
+    )
+
+    const onSelectTheme = (key: string) => {
+      if (key === 'system' || key === 'light' || key === 'dark') {
+        settingStore.setThemeMode(key)
+      }
+    }
+    return {
+      data,
+      t,
+      langLabel,
+      langOptions,
+      onSelectLang,
+      themeLabel,
+      themeOptions,
+      onSelectTheme
+    }
   },
   render() {
     return (
@@ -65,6 +94,16 @@ const Logo = defineComponent({
             style="border: 1px solid rgba(255,255,255,0.6);"
           >
             {this.t('common.language')}: {this.langLabel}
+          </NButton>
+        </NDropdown>
+        <NDropdown trigger="click" options={this.themeOptions} onSelect={this.onSelectTheme}>
+          <NButton
+            quaternary
+            size="small"
+            class="ml-2 text-white"
+            style="border: 1px solid rgba(255,255,255,0.6);"
+          >
+            {this.t('common.theme')}: {this.themeLabel}
           </NButton>
         </NDropdown>
       </NSpace>

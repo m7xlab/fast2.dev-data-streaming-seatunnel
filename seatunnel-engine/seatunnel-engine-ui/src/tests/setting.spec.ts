@@ -28,6 +28,15 @@ describe('Setting Store', () => {
         const setting = useSettingStore()
         expect(setting.getSequenceColumn).equal(false)
     })
+    it('themeMode follows the system by default and remembers a choice', () => {
+        localStorage.removeItem('seatunnel.ui.theme')
+        const setting = useSettingStore()
+        expect(setting.getThemeMode).equal('system')
+        setting.setThemeMode('dark')
+        expect(setting.getThemeMode).equal('dark')
+        expect(localStorage.getItem('seatunnel.ui.theme')).equal('dark')
+        localStorage.removeItem('seatunnel.ui.theme')
+    })
     it('requestTime', () => {
         const setting = useSettingStore()
         expect(setting.requestTime).equal(6000)
