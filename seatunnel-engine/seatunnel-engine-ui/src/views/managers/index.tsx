@@ -212,7 +212,7 @@ export default defineComponent({
     return () => (
       <NLayout>
         <NLayoutContent>
-          <div class="w-full bg-white p-6 border border-gray-100 rounded-xl">
+          <div class="w-full bg-white dark:bg-neutral-900 p-6 border border-gray-100 dark:border-neutral-800 rounded-xl">
             <NSpace justify="space-between">
               <h2 class="font-bold text-2xl pb-6">{t('managers.managers')}</h2>
               <NButton

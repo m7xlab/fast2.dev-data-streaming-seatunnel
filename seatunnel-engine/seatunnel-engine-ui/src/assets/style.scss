@@ -18,3 +18,13 @@
 .n-layout {
   background-color: #f7f8fa;
 }
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+  }
+
+  .n-layout {
+    background-color: #101014;
+  }
+}

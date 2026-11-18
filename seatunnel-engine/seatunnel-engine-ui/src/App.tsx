@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 
-import { defineComponent, watch } from 'vue'
+import { computed, defineComponent, watch } from 'vue'
 import {
   NConfigProvider,
   NMessageProvider,
   NDialogProvider,
+  darkTheme,
   dateZhCN,
   dateEnUS,
   zhCN,
@@ -27,6 +28,7 @@ import {
 } from 'naive-ui'
 import { useSettingStore } from '@/store/setting'
 import { useI18n } from 'vue-i18n'
+import { useIsDark } from '@/utils/theme'
 
 const App = defineComponent({
   setup() {
@@ -46,9 +48,12 @@ const App = defineComponent({
         primaryColor: settingStore.primaryColor
       }
     }
+    const isDark = useIsDark()
+    const theme = computed(() => (isDark.value ? darkTheme : null))
     return {
       settingStore,
-      themeOverrides
+      themeOverrides,
+      theme
     }
   },
   render() {
@@ -56,6 +61,7 @@ const App = defineComponent({
       <NConfigProvider
         date-locale={this.settingStore.getLocales === 'zh_CN' ? dateZhCN : dateEnUS}
         locale={this.settingStore.getLocales === 'zh_CN' ? zhCN : enUS}
+        theme={this.theme}
         themeOverrides={this.themeOverrides}
       >
         <NMessageProvider>

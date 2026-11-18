@@ -175,3 +175,31 @@
     width: 92% !important;
   }
 }
+
+.job-detail-exception {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  background-color: #f5f5f5;
+  padding: 12px;
+  border-radius: 4px;
+  overflow: auto;
+  max-height: 600px;
+  font-family: monospace;
+  line-height: 1.5;
+}
+
+@media (prefers-color-scheme: dark) {
+  .job-detail-exception {
+    background-color: #26262a;
+    color: #e5e7eb;
+  }
+
+  .n-data-table .n-data-table-tr.focused-row {
+    &,
+    &:hover {
+      td.n-data-table-td {
+        background-color: #1d3a5c;
+      }
+    }
+  }
+}

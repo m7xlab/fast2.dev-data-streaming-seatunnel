@@ -15,19 +15,24 @@
  * limitations under the License.
  */
 
-import { defineComponent } from 'vue'
+import { computed, defineComponent } from 'vue'
 import { NSpace, useThemeVars } from 'naive-ui'
 import Logo from './logo'
 import Info from './info'
+import { useIsDark } from '@/utils/theme'
+
+const DARK_HEADER_COLOR = '#1f2f47'
 
 const Header = defineComponent({
   setup() {
-    const color = useThemeVars().value.primaryColor
+    const themeVars = useThemeVars()
+    const isDark = useIsDark()
+    const color = computed(() => (isDark.value ? DARK_HEADER_COLOR : themeVars.value.primaryColor))
     return () => (
       <NSpace
         justify="space-between"
         class="h-16 border-gray-200 text-white"
-        style={`background-color:${color}`}
+        style={`background-color:${color.value}`}
       >
         <Logo />
         <Info />

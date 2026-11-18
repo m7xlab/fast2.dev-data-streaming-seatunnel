@@ -81,10 +81,10 @@ export default defineComponent({
         >
           {groups.value.map((group) => (
             <div key={group.unit} class="live-metrics-group min-w-0">
-              <div class="text-xs text-gray-500 mb-1 leading-4">
+              <div class="text-xs text-gray-500 dark:text-gray-400 mb-1 leading-4">
                 {props.unitTitles[group.unit] || group.unit}
               </div>
-              <div class="live-metrics-chart-container bg-white rounded border border-gray-100 overflow-hidden">
+              <div class="live-metrics-chart-container bg-white dark:bg-neutral-900 rounded border border-gray-100 dark:border-neutral-800 overflow-hidden">
                 <LiveLineChart
                   series={group.series}
                   windowMs={props.windowMs}

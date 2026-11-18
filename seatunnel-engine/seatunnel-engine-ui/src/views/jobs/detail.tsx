@@ -559,7 +559,7 @@ export default defineComponent({
     }
 
     return () => (
-      <div class="job-detail-page w-full bg-white border border-gray-100 rounded-xl">
+      <div class="job-detail-page w-full bg-white dark:bg-neutral-900 border border-gray-100 dark:border-neutral-800 rounded-xl">
         <div class="job-detail-title font-bold text-xl">
           <span>{job.jobName}</span>
           <NTag bordered={false} color={getColorFromStatus(job.jobStatus)}>
@@ -606,10 +606,10 @@ export default defineComponent({
                   realtimeVertexStats={realtimeVertexStats.value}
                   realtimeTick={realtimeTick.value}
                 />
-                <div class="job-detail-pinned-metrics border border-gray-100 rounded-lg px-3 pt-2 pb-2 bg-gray-50">
+                <div class="job-detail-pinned-metrics border border-gray-100 dark:border-neutral-800 rounded-lg px-3 pt-2 pb-2 bg-gray-50 dark:bg-neutral-800">
                   <div class="live-metrics-header flex items-baseline justify-between mb-2">
                     <div class="font-semibold text-base">{t('detail.liveMetrics.pinnedTitle')}</div>
-                    <div class="text-xs text-gray-500">
+                    <div class="text-xs text-gray-500 dark:text-gray-400">
                       {t('detail.liveMetrics.pinnedHint', { limit: LIVE_METRICS_PIN_LIMIT })}
                       {pinStore.pins.length
                         ? ` · ${pinStore.pins.length}/${LIVE_METRICS_PIN_LIMIT}`
@@ -656,7 +656,7 @@ export default defineComponent({
               </div>
             </NTabPane>
             <NTabPane name="Exception" tab={t('detail.tabs.exception')}>
-              <pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f5f5f5; padding: 12px; border-radius: 4px; overflow: auto; max-height: 600px; font-family: monospace; line-height: 1.5;">
+              <pre class="job-detail-exception">
                 {job.errorMsg}
               </pre>
             </NTabPane>

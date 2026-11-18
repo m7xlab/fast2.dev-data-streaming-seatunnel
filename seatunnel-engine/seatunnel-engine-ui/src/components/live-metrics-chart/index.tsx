@@ -27,6 +27,7 @@ import {
 import { CanvasRenderer } from 'echarts/renderers'
 import type { LiveMetricSeries, MetricUnit } from './types'
 import { formatMetricValue } from './group'
+import { useIsDark } from '@/utils/theme'
 
 export type { LiveLineChartProps, LiveMetricPoint, LiveMetricSeries, MetricUnit } from './types'
 
@@ -40,6 +41,30 @@ echarts.use([
 ])
 
 const COLORS = ['#4678B9', '#18A058', '#F0A020', '#D03050', '#2080F0', '#8A2BE2']
+
+const LIGHT_PALETTE = {
+  text: '#666',
+  muted: '#999',
+  faint: '#9ca3af',
+  splitLine: '#eee',
+  axisLine: '#d1d5db',
+  axisLineCompact: '#e5e7eb',
+  tooltipBackground: '#fff',
+  tooltipBorder: '#e5e7eb',
+  tooltipText: '#333'
+}
+
+const DARK_PALETTE = {
+  text: '#d1d5db',
+  muted: '#9ca3af',
+  faint: '#9ca3af',
+  splitLine: '#2e2e33',
+  axisLine: '#52525b',
+  axisLineCompact: '#3f3f46',
+  tooltipBackground: '#26262a',
+  tooltipBorder: '#3f3f46',
+  tooltipText: '#e5e7eb'
+}
 
 export default defineComponent({
   name: 'LiveLineChart',
@@ -68,12 +93,14 @@ export default defineComponent({
   setup(props) {
     const el = ref<HTMLDivElement>()
     let chart: echarts.ECharts | undefined
+    const isDark = useIsDark()
 
     const render = () => {
       if (!el.value) return
       if (!chart) {
         chart = echarts.init(el.value)
       }
+      const palette = isDark.value ? DARK_PALETTE : LIGHT_PALETTE
       const series = props.series || []
       if (!series.length) {
         chart.clear()
@@ -82,7 +109,7 @@ export default defineComponent({
             text: props.emptyText,
             left: 'center',
             top: 'middle',
-            textStyle: { color: '#999', fontSize: 14, fontWeight: 'normal' }
+            textStyle: { color: palette.muted, fontSize: 14, fontWeight: 'normal' }
           }
         })
         return
@@ -108,9 +135,10 @@ export default defineComponent({
               axisLabel: {
                 fontSize: compact ? 9 : 10,
                 margin: compact ? 4 : 8,
+                color: palette.text,
                 formatter: (v: number) => `${Math.round(v * 100)}`
               },
-              splitLine: { lineStyle: { type: 'dashed', color: '#eee' } }
+              splitLine: { lineStyle: { type: 'dashed', color: palette.splitLine } }
             }
           : {
               show: unit !== 'count' || hasVisiblePoints,
@@ -118,8 +146,8 @@ export default defineComponent({
               min: compact ? 0 : undefined,
               minInterval: unit === 'count' ? 1 : undefined,
               scale: !compact,
-              axisLabel: { fontSize: compact ? 9 : 10, margin: compact ? 4 : 8 },
-              splitLine: { lineStyle: { type: 'dashed', color: '#eee' } }
+              axisLabel: { fontSize: compact ? 9 : 10, margin: compact ? 4 : 8, color: palette.text },
+              splitLine: { lineStyle: { type: 'dashed', color: palette.splitLine } }
             }
 
       chart.setOption(
@@ -132,7 +160,7 @@ export default defineComponent({
                   left: 'center',
                   top: 'middle',
                   textStyle: {
-                    color: '#9ca3af',
+                    color: palette.faint,
                     fontSize: compact ? 10 : 12,
                     fontWeight: 'normal'
                   }
@@ -143,12 +171,15 @@ export default defineComponent({
                     text: series[0].name,
                     left: 0,
                     top: 0,
-                    textStyle: { color: '#666', fontSize: compact ? 11 : 12, fontWeight: 'normal' }
+                    textStyle: { color: palette.text, fontSize: compact ? 11 : 12, fontWeight: 'normal' }
                   }
                 : { show: false },
           color: COLORS,
           tooltip: {
             trigger: 'axis',
+            backgroundColor: palette.tooltipBackground,
+            borderColor: palette.tooltipBorder,
+            textStyle: { color: palette.tooltipText },
             formatter: (params: unknown) => {
               const items = Array.isArray(params) ? params : [params]
               const first = items[0] as { axisValue?: number }
@@ -175,7 +206,7 @@ export default defineComponent({
                   top: 0,
                   itemWidth: compact ? 10 : 14,
                   itemHeight: compact ? 8 : 10,
-                  textStyle: { fontSize: compact ? 10 : 11 },
+                  textStyle: { fontSize: compact ? 10 : 11, color: palette.text },
                   data: series.map((s) => s.name)
                 },
           grid: {
@@ -193,10 +224,11 @@ export default defineComponent({
             max: now,
             boundaryGap: false,
             axisTick: { show: !compact },
-            axisLine: { show: true, lineStyle: { color: compact ? '#e5e7eb' : '#d1d5db' } },
+            axisLine: { show: true, lineStyle: { color: compact ? palette.axisLineCompact : palette.axisLine } },
             axisLabel: compact
               ? { show: false, margin: 0 }
               : {
+                  color: palette.text,
                   formatter: (value: number) =>
                     new Date(value).toLocaleTimeString(undefined, {
                       hour: '2-digit',
@@ -253,7 +285,7 @@ export default defineComponent({
       chart = undefined
     })
     watch(
-      () => [props.series, props.windowMs, props.emptyText, props.unit, props.height],
+      () => [props.series, props.windowMs, props.emptyText, props.unit, props.height, isDark.value],
       () => render(),
       { deep: true }
     )

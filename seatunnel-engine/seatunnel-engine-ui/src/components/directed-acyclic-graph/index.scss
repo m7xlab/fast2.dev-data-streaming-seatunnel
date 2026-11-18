@@ -109,3 +109,38 @@
     transform: rotate(360deg);
   }
 }
+
+@media (prefers-color-scheme: dark) {
+  .node {
+    background-color: #26262a;
+    box-shadow: 0 2px 5px 1px rgba(0, 0, 0, 0.4);
+
+    .label {
+      color: #d1d5db;
+    }
+  }
+
+  .dag-wrapper {
+    border-color: #2e2e33;
+    background: #18181c;
+  }
+
+  .dag-btn {
+    border-color: #3f3f46;
+    background: rgba(38, 38, 42, 0.92);
+    color: #e5e7eb;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+
+  .dag-btn:hover {
+    background: rgba(52, 52, 58, 1);
+  }
+
+  .x6-node-selected .node {
+    box-shadow: 0 0 0 4px #1d3a5c;
+  }
+
+  .x6-port-body {
+    fill: #26262a;
+  }
+}
